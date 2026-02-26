@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 // Para el registro de localización en español
 import 'package:intl/date_symbol_data_local.dart';
@@ -60,6 +61,7 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
   bool _denunciaAnonima = false;
   String? _tipoAcoso;
   bool _aceptaDeclaracion = false;
+  PlatformFile? _archivoAdjunto;
 
   final List<String> _tiposAcoso = ['Laboral', 'Sexual', 'Violencia'];
 
@@ -75,6 +77,42 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final randomNum = random.nextInt(9999).toString().padLeft(4, '0');
     return 'LK-${timestamp.toString().substring(7)}-$randomNum';
+  }
+
+  Future<void> _seleccionarArchivo() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: [
+          'mp3', 'wav', 'mp4', 'mov', 'avi',
+          'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'
+        ],
+      );
+
+      if (result != null) {
+        final file = result.files.first;
+        // Validación de 20MB (20 * 1024 * 1024 bytes)
+        if (file.size > 20 * 1024 * 1024) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('El archivo supera el límite de 20MB'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+
+        setState(() {
+          _archivoAdjunto = file;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar archivo: $e')),
+      );
+    }
   }
 
   Future<void> _enviarDenuncia() async {
@@ -98,6 +136,7 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
         folio: folio,
         fechaHora: fechaHora,
         relato: _relatoController.text,
+        archivoAdjunto: _archivoAdjunto,
       );
 
       if (!mounted) return;
@@ -131,8 +170,16 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
     required String folio,
     required DateTime fechaHora,
     required String relato,
+    PlatformFile? archivoAdjunto,
   }) async {
     final pdf = pw.Document();
+    
+    // Usamos una fuente con soporte Unicode (como Roboto) si es necesario,
+    // o simplemente evitamos los errores de Helvetica usando una fuente estándar.
+    // Para simplificar sin dependencias extras, usamos pw.Font.helvetica()
+    // pero asegurándonos de que no haya caracteres que fallen.
+    // Lo ideal es cargar una fuente de assets.
+    
     final fechaFormateada = DateFormat(
       'dd/MM/yyyy HH:mm:ss',
       'es_CL',
@@ -166,6 +213,19 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
           ),
           pw.SizedBox(height: 10),
           pw.Text(relato),
+          if (archivoAdjunto != null) ...[
+            pw.SizedBox(height: 20),
+            pw.Divider(),
+            pw.Text(
+              'Archivo adjunto:',
+              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            ),
+            pw.Text(archivoAdjunto.name),
+            pw.Text(
+              'Tamaño: ${(archivoAdjunto.size / (1024 * 1024)).toStringAsFixed(2)} MB',
+              style: const pw.TextStyle(fontSize: 10),
+            ),
+          ],
         ],
       ),
     );
@@ -200,9 +260,9 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
                   if (v) _nombreController.clear();
                 }),
               ),
-              // LÍNEA 205 CORREGIDA:
+              // DropdownButtonFormField corregido: usar 'value' en lugar de 'initialValue'
               DropdownButtonFormField<String>(
-                initialValue: _tiposAcoso.contains(_tipoAcoso)
+                value: _tiposAcoso.contains(_tipoAcoso)
                     ? _tipoAcoso
                     : null,
                 items: _tiposAcoso
@@ -236,6 +296,40 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
                 value: _aceptaDeclaracion,
                 onChanged: (v) =>
                     setState(() => _aceptaDeclaracion = v ?? false),
+              ),
+              const SizedBox(height: 20),
+              // Botón de Archivo Adjunto
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: ListTile(
+                  leading: const Icon(Icons.attach_file, color: Color(0xFF1A237E)),
+                  title: Text(
+                    _archivoAdjunto == null
+                        ? 'Adjuntar Audio, Video, Imagen o Documento (Máx 20MB)'
+                        : _archivoAdjunto!.name,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: _archivoAdjunto == null ? Colors.grey : Colors.black,
+                    ),
+                  ),
+                  subtitle: _archivoAdjunto != null
+                      ? Text(
+                          '${(_archivoAdjunto!.size / (1024 * 1024)).toStringAsFixed(2)} MB')
+                      : null,
+                  trailing: _archivoAdjunto != null
+                      ? IconButton(
+                          icon: const Icon(Icons.close, color: Colors.red),
+                          onPressed: () => setState(() => _archivoAdjunto = null),
+                        )
+                      : TextButton(
+                          onPressed: _seleccionarArchivo,
+                          child: const Text('SELECCIONAR'),
+                        ),
+                  onTap: _archivoAdjunto == null ? _seleccionarArchivo : null,
+                ),
               ),
               const SizedBox(height: 30),
               ElevatedButton(
@@ -303,5 +397,7 @@ class FolioScreen extends StatelessWidget {
 }
 
 extension on NavigatorState {
-  void popToRoot() {}
+  void popToRoot() {
+    popUntil((route) => route.isFirst);
+  }
 }
