@@ -84,8 +84,17 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: [
-          'mp3', 'wav', 'mp4', 'mov', 'avi',
-          'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'
+          'mp3',
+          'wav',
+          'mp4',
+          'mov',
+          'avi',
+          'pdf',
+          'doc',
+          'docx',
+          'jpg',
+          'jpeg',
+          'png',
         ],
       );
 
@@ -173,13 +182,13 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
     PlatformFile? archivoAdjunto,
   }) async {
     final pdf = pw.Document();
-    
+
     // Usamos una fuente con soporte Unicode (como Roboto) si es necesario,
     // o simplemente evitamos los errores de Helvetica usando una fuente estándar.
     // Para simplificar sin dependencias extras, usamos pw.Font.helvetica()
     // pero asegurándonos de que no haya caracteres que fallen.
     // Lo ideal es cargar una fuente de assets.
-    
+
     final fechaFormateada = DateFormat(
       'dd/MM/yyyy HH:mm:ss',
       'es_CL',
@@ -262,7 +271,7 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
               ),
               // DropdownButtonFormField corregido: usar 'value' en lugar de 'initialValue'
               DropdownButtonFormField<String>(
-                value: _tiposAcoso.contains(_tipoAcoso)
+                initialValue: _tiposAcoso.contains(_tipoAcoso)
                     ? _tipoAcoso
                     : null,
                 items: _tiposAcoso
@@ -305,24 +314,31 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: ListTile(
-                  leading: const Icon(Icons.attach_file, color: Color(0xFF1A237E)),
+                  leading: const Icon(
+                    Icons.attach_file,
+                    color: Color(0xFF1A237E),
+                  ),
                   title: Text(
                     _archivoAdjunto == null
                         ? 'Adjuntar Audio, Video, Imagen o Documento (Máx 20MB)'
                         : _archivoAdjunto!.name,
                     style: TextStyle(
                       fontSize: 14,
-                      color: _archivoAdjunto == null ? Colors.grey : Colors.black,
+                      color: _archivoAdjunto == null
+                          ? Colors.grey
+                          : Colors.black,
                     ),
                   ),
                   subtitle: _archivoAdjunto != null
                       ? Text(
-                          '${(_archivoAdjunto!.size / (1024 * 1024)).toStringAsFixed(2)} MB')
+                          '${(_archivoAdjunto!.size / (1024 * 1024)).toStringAsFixed(2)} MB',
+                        )
                       : null,
                   trailing: _archivoAdjunto != null
                       ? IconButton(
                           icon: const Icon(Icons.close, color: Colors.red),
-                          onPressed: () => setState(() => _archivoAdjunto = null),
+                          onPressed: () =>
+                              setState(() => _archivoAdjunto = null),
                         )
                       : TextButton(
                           onPressed: _seleccionarArchivo,
