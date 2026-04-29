@@ -1,7 +1,9 @@
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 // Para el registro de localización en español
@@ -96,6 +98,7 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
           'jpeg',
           'png',
         ],
+        withData: true,
       );
 
       if (result != null) {
@@ -121,6 +124,48 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error al seleccionar archivo: $e')),
       );
+    }
+  }
+
+  Future<void> enviarDatosADrive() async {
+    const String urlDeTuScript = "https://script.google.com/macros/s/AKfycbw_bjz0Mg8cIQm7xQAPD12MbpjHtRVl3qJLz-ooYgyQPs2mT79IGhipZJvm4flSseA0iQ/exec";
+
+    final nombreUsuario = _denunciaAnonima ? 'Anónimo' : _nombreController.text;
+    
+    String? base64File;
+    String? fileName;
+    
+    if (_archivoAdjunto != null && _archivoAdjunto!.bytes != null) {
+      base64File = base64Encode(_archivoAdjunto!.bytes!);
+      fileName = _archivoAdjunto!.name;
+    }
+
+    Map<String, dynamic> datosDelFormulario = {
+      "nombre": "Reporte_${DateTime.now().millisecondsSinceEpoch}.txt", 
+      "contenido": "Nombre: $nombreUsuario\nTipo de Acoso: ${_tipoAcoso ?? 'No especificado'}\nRelato: ${_relatoController.text}"
+    };
+
+    if (base64File != null) {
+      datosDelFormulario["archivoBase64"] = base64File;
+      datosDelFormulario["archivoNombre"] = fileName;
+    }
+
+    try {
+      print("Enviando datos...");
+      final response = await http.post(
+        Uri.parse(urlDeTuScript),
+        headers: {"Content-Type": "text/plain"}, 
+        body: jsonEncode(datosDelFormulario),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 302) {
+        print("¡Éxito! Status: ${response.statusCode}");
+        print("Respuesta del servidor: ${response.body}");
+      } else {
+        print("Error en el servidor: ${response.statusCode}");
+      }
+    } catch (e) {
+      print("Error de conexión: $e");
     }
   }
 
@@ -155,6 +200,9 @@ class _DenunciaScreenState extends State<DenunciaScreen> {
       );
 
       if (!mounted) return;
+
+      // Enviar datos a Google Drive
+      await enviarDatosADrive();
 
       Navigator.push(
         context,
@@ -417,3 +465,4 @@ extension on NavigatorState {
     popUntil((route) => route.isFirst);
   }
 }
+
